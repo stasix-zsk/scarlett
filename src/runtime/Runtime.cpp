@@ -18,8 +18,12 @@ struct Frame {
 };
 }
 
-VM::Result VM::run(VMModule& mod, int funcIndex, const std::vector<long long>& args) {
-    Result res;
+namespace {
+// Rdzen interpretera: wykonuje funkcje VM na wlasnym stosie ramek. Napisy zyja
+// na "stercie" (heap) wspolnej dla calego wykonania - rejestr trzyma uchwyt
+// (indeks w heap). Poczatkowa zawartosc heap pozwala przekazac napisy jako argumenty.
+VM::Result executeModule(VMModule& mod, int funcIndex, const std::vector<long long>& args, std::vector<std::string> heap) {
+    VM::Result res;
     if (funcIndex < 0 || funcIndex >= (int)mod.functions.size()) {
         res.ok = false; res.error = "zly indeks funkcji"; return res;
     }
@@ -33,6 +37,12 @@ VM::Result VM::run(VMModule& mod, int funcIndex, const std::vector<long long>& a
     root.hasDst = false;
     stack.push_back(root);
 
+    // odczyt napisu spod uchwytu (zwraca kopie - bezpieczne wzgledem realokacji heap)
+    auto handleStr = [&](long long h) -> std::string {
+        if (h >= 0 && h < (long long)heap.size()) return heap[(size_t)h];
+        return std::string();
+    };
+
     long long retval = 0;
     bool done = false;
     // glowna petla interpretera: wykonuje kolejne instrukcje az do konca lub bledu
@@ -41,7 +51,7 @@ VM::Result VM::run(VMModule& mod, int funcIndex, const std::vector<long long>& a
         VMFunction& fn = mod.functions[f.funcIndex];
         if (f.pc >= fn.code.size()) {
             long long r = 0;
-            int dst = f.dstReg; bool has = f.hasDst; int caller = f.callerFrame;
+            int dst = f.dstReg; bool has = f.hasDst;
             stack.pop_back();
             if (stack.empty()) { retval = r; done = true; }
             else {
@@ -128,17 +138,57 @@ VM::Result VM::run(VMModule& mod, int funcIndex, const std::vector<long long>& a
                 if (stack.empty()) { retval = 0; done = true; }
                 break;
             }
+            case VMOp::LOADS: {
+                // zaladuj literal napisowy z puli funkcji na sterte, uchwyt do rejestru
+                const std::vector<std::string>& sp = fn.strpool;
+                std::string v = (ins.imm >= 0 && ins.imm < (long long)sp.size()) ? sp[(size_t)ins.imm] : std::string();
+                heap.push_back(std::move(v));
+                if (ins.dst >= 0 && ins.dst < (int)f.regs.size()) f.regs[ins.dst] = (long long)(heap.size()-1);
+                break;
+            }
+            case VMOp::SCAT: {
+                // konkatenacja: policz wynik przed push_back (realokacja heap unieważnia referencje)
+                std::string v = handleStr(f.regs[ins.a]);
+                v += handleStr(f.regs[ins.b]);
+                heap.push_back(std::move(v));
+                if (ins.dst >= 0 && ins.dst < (int)f.regs.size()) f.regs[ins.dst] = (long long)(heap.size()-1);
+                break;
+            }
+            case VMOp::SLEN:
+                f.regs[ins.dst] = (long long)handleStr(f.regs[ins.a]).size(); break;
+            case VMOp::SEQ:
+                f.regs[ins.dst] = (handleStr(f.regs[ins.a]) == handleStr(f.regs[ins.b])) ? 1 : 0; break;
+            case VMOp::SNE:
+                f.regs[ins.dst] = (handleStr(f.regs[ins.a]) != handleStr(f.regs[ins.b])) ? 1 : 0; break;
+            case VMOp::HALT:
+                done = true; break;
             default:
                 break;
         }
     }
     res.value = retval;
+    res.heap = std::move(heap);
     return res;
+}
+}
+
+VM::Result VM::run(VMModule& mod, int funcIndex, const std::vector<long long>& args) {
+    return executeModule(mod, funcIndex, args, {});
 }
 
 VM::Result VM::run(VMModule& mod, const std::string& name, const std::vector<long long>& args) {
-    int idx = mod.indexOf(name);
-    return run(mod, idx, args);
+    return executeModule(mod, mod.indexOf(name), args, {});
+}
+
+VM::Result VM::runArgs(VMModule& mod, const std::string& name, const std::vector<Arg>& args) {
+    // argumenty napisowe interowane na poczatkowej stercie; rejestr dostaje uchwyt
+    std::vector<std::string> heap;
+    std::vector<long long> a;
+    for (const Arg& ar : args) {
+        if (ar.isStr) { heap.push_back(ar.s); a.push_back((long long)(heap.size()-1)); }
+        else a.push_back(ar.i);
+    }
+    return executeModule(mod, mod.indexOf(name), a, std::move(heap));
 }
 
 long long scarlett_call_blob(const unsigned char* data, size_t size, const char* funcName, const long long* args, int argc, int* ok) {
@@ -157,5 +207,39 @@ long long scarlett_call_blob(const unsigned char* data, size_t size, const char*
     scarlett::VM::Result r = vm.run(mod, funcName, a);
     if (ok) *ok = r.ok ? 1 : 0;
     return r.value;
+}
+
+// Wspolny rdzen dla wariantow ABI obslugujacych napisy: dekoduje blob, buduje
+// argumenty (int/string wg strs[k]!=nullptr) i uruchamia funkcje.
+static VM::Result call_blob_args(const unsigned char* data, size_t size, const char* funcName,
+                                 const long long* ints, const char* const* strs, int argc, int* ok) {
+    std::vector<uint8_t> bytes(data, data + size);
+    std::string err;
+    bool integrity = false;
+    VMModule mod = decodeModule(bytes, err, &integrity);
+    VM::Result r;
+    if (!err.empty() || !integrity) {
+        if (ok) *ok = 0;
+        r.ok = false;
+        return r;
+    }
+    std::vector<VM::Arg> a;
+    // petla buduje argumenty: napis gdy strs[i]!=nullptr, w przeciwnym razie liczba
+    for (int i = 0; i < argc; ++i) {
+        if (strs && strs[i]) a.push_back(VM::Arg(std::string(strs[i])));
+        else a.push_back(VM::Arg((long long)(ints ? ints[i] : 0)));
+    }
+    VM vm;
+    r = vm.runArgs(mod, funcName, a);
+    if (ok) *ok = r.ok ? 1 : 0;
+    return r;
+}
+
+long long scarlett_call_blob(const unsigned char* data, size_t size, const char* funcName, const long long* ints, const char* const* strs, int argc, int* ok) {
+    return call_blob_args(data, size, funcName, ints, strs, argc, ok).value;
+}
+
+std::string scarlett_call_blob_str(const unsigned char* data, size_t size, const char* funcName, const long long* ints, const char* const* strs, int argc, int* ok) {
+    return call_blob_args(data, size, funcName, ints, strs, argc, ok).str();
 }
 }
