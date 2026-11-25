@@ -35,6 +35,11 @@ static long long nat_countdown(int n){
 static long long nat_firstge(int n){
     for(int i=0;;++i) if(static_cast<long long>(i)*i>=n) return i;
 }
+static long long nat_reach(int n){
+    int i=0;
+    for(i=0;i<n;i=i+1) ;   // pusta instrukcja jako cialo
+    return i;
+}
 
 int main() {
     const char* src = R"(
@@ -79,6 +84,13 @@ int main() {
         if (i * i >= n) return i;
     }
 }
+
+// for z pustym cialem - cala praca w klauzulach (skrajny warunek: cialo to ;)
+[[vm_protect]] int reach(int n) {
+    int i = 0;
+    for (i = 0; i < n; i = i + 1) ;
+    return i;
+}
 )";
     scarlett::Parser p(src);
     auto prog = p.parse();
@@ -98,6 +110,7 @@ int main() {
         auto r3 = v.run(dec, "grid", {n});      assert(r3.ok && r3.value == nat_grid(n));
         auto r4 = v.run(dec, "countdown", {n}); assert(r4.ok && r4.value == nat_countdown(n));
         auto r5 = v.run(dec, "firstge", {n});   assert(r5.ok && r5.value == nat_firstge(n));
+        auto r6 = v.run(dec, "reach", {n});     assert(r6.ok && r6.value == nat_reach(n));
     }
 
     // sekcja fuzz: 1000 losowych wywolan kazdej funkcji for i porownanie z natywna
@@ -108,6 +121,7 @@ int main() {
         auto r2 = v.run(dec, "tri", {n});       assert(r2.ok && r2.value == nat_tri(n));
         auto r4 = v.run(dec, "countdown", {n}); assert(r4.ok && r4.value == nat_countdown(n));
         auto r5 = v.run(dec, "firstge", {n});   assert(r5.ok && r5.value == nat_firstge(n));
+        auto r6 = v.run(dec, "reach", {n});     assert(r6.ok && r6.value == nat_reach(n));
         int m = rng() % 25;
         auto r3 = v.run(dec, "grid", {m});      assert(r3.ok && r3.value == nat_grid(m));
     }

@@ -187,6 +187,7 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
         expect(";");
         return s;
     }
+    if (peek().text==";") { next(); auto s=std::make_shared<Stmt>(); s->kind=Stmt::Block; return s; } // pusta instrukcja, np. cialo for(;;); lub while(cond);
     if (peek().text=="{") return parseBlock();
     if (peek().text=="int"||peek().text=="bool"||peek().text=="void") {
         ValueType t=parseType();
