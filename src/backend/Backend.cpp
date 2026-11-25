@@ -32,6 +32,11 @@ static VMOp mapOp(IROp op) {
         case IROp::CALL: return VMOp::CALL;
         case IROp::RET: return VMOp::RET;
         case IROp::RETV: return VMOp::RETV;
+        case IROp::LOADS: return VMOp::LOADS;
+        case IROp::SCAT: return VMOp::SCAT;
+        case IROp::SLEN: return VMOp::SLEN;
+        case IROp::SEQ: return VMOp::SEQ;
+        case IROp::SNE: return VMOp::SNE;
         default: return VMOp::NOP;
     }
 }
@@ -47,6 +52,7 @@ VMModule lowerToVM(const IRModule& ir) {
         vf.paramCount = (int)f.params.size();
         vf.regCount = f.regCount;
         vf.isProtected = f.isProtected;
+        vf.strpool = f.strpool;
         mod.functions.push_back(vf);
     }
 

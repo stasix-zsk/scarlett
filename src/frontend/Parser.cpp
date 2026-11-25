@@ -18,18 +18,47 @@ void Parser::tokenize() {
     while (i < src_.size()) {
         char c = src_[i];
         if (c==' '||c=='\t'||c=='\r'||c=='\n') { ++i; continue; }
+        if (c=='#') { while (i<src_.size() && src_[i]!='\n') ++i; continue; } // pomija dyrektywy preprocesora (#include itp.)
         if (c=='/' && i+1<src_.size() && src_[i+1]=='/') { while (i<src_.size() && src_[i]!='\n') ++i; continue; } // pomija komentarz //
         if (c=='/' && i+1<src_.size() && src_[i+1]=='*') { i+=2; while (i+1<src_.size() && !(src_[i]=='*'&&src_[i+1]=='/')) ++i; i+=2; continue; } // pomija komentarz /* */
         Token t; t.pos=i;
         if (isIdentStart(c)) {
             size_t j=i; while (j<src_.size() && isIdentChar(src_[j])) ++j; // zbiera znaki identyfikatora
             t.type=Token::Ident; t.text=src_.substr(i,j-i); i=j;
-            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="for"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
+            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="string"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="for"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
+            // ergonomia podzbioru: "std::string" (z dowolnymi odstepami) traktujemy
+            // jak pojedynczy typ "string", by akceptowac naturalny zapis C++.
+            if (t.text=="std") {
+                size_t k=i;
+                while (k<src_.size() && (src_[k]==' '||src_[k]=='\t'||src_[k]=='\r'||src_[k]=='\n')) ++k;
+                if (k+1<src_.size() && src_[k]==':' && src_[k+1]==':') {
+                    k+=2;
+                    while (k<src_.size() && (src_[k]==' '||src_[k]=='\t'||src_[k]=='\r'||src_[k]=='\n')) ++k;
+                    size_t m=k; while (m<src_.size() && isIdentChar(src_[m])) ++m;
+                    if (src_.substr(k,m-k)=="string") { t.text="string"; t.type=Token::Kw; i=m; }
+                }
+            }
         } else if (std::isdigit((unsigned char)c)) {
             size_t j=i; while (j<src_.size() && std::isdigit((unsigned char)src_[j])) ++j; // zbiera cyfry liczby
             t.type=Token::Number; t.text=src_.substr(i,j-i); i=j;
         } else if (c=='"') {
-            size_t j=i+1; std::string s; while (j<src_.size() && src_[j]!='"') { s+=src_[j]; ++j; } // zbiera znaki napisu
+            size_t j=i+1; std::string s;
+            // zbiera znaki napisu, obslugujac podstawowe sekwencje ucieczki (\n \t \" \\ \0 \r)
+            while (j<src_.size() && src_[j]!='"') {
+                if (src_[j]=='\\' && j+1<src_.size()) {
+                    char e=src_[j+1];
+                    switch (e) {
+                        case 'n': s+='\n'; break;
+                        case 't': s+='\t'; break;
+                        case 'r': s+='\r'; break;
+                        case '0': s+='\0'; break;
+                        case '\\': s+='\\'; break;
+                        case '"': s+='"'; break;
+                        default: s+=e; break;
+                    }
+                    j+=2;
+                } else { s+=src_[j]; ++j; }
+            }
             t.type=Token::Str; t.text=s; i=j+1;
         } else {
             std::string two = src_.substr(i,2);
@@ -57,6 +86,7 @@ ValueType Parser::parseType(){
     if (t.text=="int") return ValueType::Int;
     if (t.text=="bool") return ValueType::Bool;
     if (t.text=="void") return ValueType::Void;
+    if (t.text=="string") return ValueType::Str;
     if (error_.empty()) error_="expected type";
     return ValueType::Int;
 }
@@ -66,7 +96,7 @@ Program Parser::parse(){
     // petla glowna: znajduje i parsuje kolejne definicje funkcji do konca pliku
     while (peek().type!=Token::Eof) {
         // petla pomija wszystko, co nie jest poczatkiem typu/atrybutu [[...]]
-        while (peek().type!=Token::Eof && !(peek().text=="int"||peek().text=="bool"||peek().text=="void"||peek().text=="[")) {
+        while (peek().type!=Token::Eof && !(peek().text=="int"||peek().text=="bool"||peek().text=="void"||peek().text=="string"||peek().text=="[")) {
             next();
         }
         if (peek().type==Token::Eof) break;
@@ -158,7 +188,7 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
         auto s=std::make_shared<Stmt>(); s->kind=Stmt::For;
         // klauzula inicjujaca: deklaracja zmiennej (int/bool) albo wyrazenie, moze byc pusta
         if (peek().text!=";") {
-            if (peek().text=="int"||peek().text=="bool"||peek().text=="void") {
+            if (peek().text=="int"||peek().text=="bool"||peek().text=="void"||peek().text=="string") {
                 ValueType t=parseType();
                 auto d=std::make_shared<Stmt>(); d->kind=Stmt::VarDecl; d->type=t;
                 if (peek().type==Token::Ident) d->name=next().text;
@@ -189,7 +219,7 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
     }
     if (peek().text==";") { next(); auto s=std::make_shared<Stmt>(); s->kind=Stmt::Block; return s; } // pusta instrukcja, np. cialo for(;;); lub while(cond);
     if (peek().text=="{") return parseBlock();
-    if (peek().text=="int"||peek().text=="bool"||peek().text=="void") {
+    if (peek().text=="int"||peek().text=="bool"||peek().text=="void"||peek().text=="string") {
         ValueType t=parseType();
         auto s=std::make_shared<Stmt>(); s->kind=Stmt::VarDecl; s->type=t;
         if (peek().type==Token::Ident) s->name=next().text;
@@ -270,8 +300,8 @@ std::shared_ptr<Expr> Parser::parsePrimary(){
         auto e=std::make_shared<Expr>(); e->kind=Expr::IntLit; e->intVal=std::stoll(next().text); return e;
     }
     if (peek().type==Token::Str) {
-        next();
-        auto e=std::make_shared<Expr>(); e->kind=Expr::IntLit; e->intVal=0; return e;
+        std::string s=next().text;
+        auto e=std::make_shared<Expr>(); e->kind=Expr::StrLit; e->strVal=s; return e;
     }
     if (peek().text=="true") { next(); auto e=std::make_shared<Expr>(); e->kind=Expr::BoolLit; e->boolVal=true; return e; }
     if (peek().text=="false") { next(); auto e=std::make_shared<Expr>(); e->kind=Expr::BoolLit; e->boolVal=false; return e; }

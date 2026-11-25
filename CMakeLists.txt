@@ -34,6 +34,11 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/out/more.protected.cpp)
     target_link_libraries(more_protected PRIVATE scarlett_runtime)
 endif()
 
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/out/strings.protected.cpp)
+    add_executable(strings_protected out/strings.protected.cpp)
+    target_link_libraries(strings_protected PRIVATE scarlett_runtime)
+endif()
+
 # Tests
 enable_testing()
 add_executable(scarlett_tests tests/test_vm.cpp)
@@ -51,3 +56,7 @@ add_test(NAME scarlett_fuzz_tests COMMAND scarlett_fuzz_tests)
 add_executable(scarlett_for_tests tests/test_for.cpp)
 target_link_libraries(scarlett_for_tests PRIVATE scarlett_runtime)
 add_test(NAME scarlett_for_tests COMMAND scarlett_for_tests)
+
+add_executable(scarlett_string_tests tests/test_string.cpp)
+target_link_libraries(scarlett_string_tests PRIVATE scarlett_runtime)
+add_test(NAME scarlett_string_tests COMMAND scarlett_string_tests)

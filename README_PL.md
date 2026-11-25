@@ -73,9 +73,44 @@ pod `demo` i `more`, a nie generowane automatycznie dla dowolnej nazwy pliku.
 
 ## Zakres M4
 
-Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, for, wywołania funkcji, return.
+Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, for, wywołania funkcji, return, rekurencja.
 Chronione funkcje działają end-to-end przez ABI (argumenty i wynik) i zwracają ten sam wynik co wersja natywna.
 
+### Napisy (string)
+
+Typ `string` (można pisać `string` lub `std::string`) jest obsługiwany jako pełnoprawny typ —
+zmienne, parametry i wartości zwracane funkcji chronionych. Wspierane operacje:
+
+- literały napisowe, np. `"abc"` (z sekwencjami ucieczki `\n \t \r \0 \\ \"`),
+- konkatenacja operatorem `+`,
+- porównanie `==` i `!=` (wynik `bool`/`int`),
+- długość przez wbudowane `len(s)` (zwraca `int`; dostępne też jako `length(s)`/`size(s)`).
+
+Przykład (`examples/strings.cpp`):
+
+```cpp
+[[vm_protect]] std::string join(std::string a, std::string b) {
+    return a + "/" + b;              // konkatenacja + literał
+}
+[[vm_protect]] int same(std::string a, std::string b) {
+    if (a == b) return 1;            // porównanie napisów
+    return 0;
+}
+[[vm_protect]] std::string repeat(std::string s, int n) {
+    std::string r = "";
+    for (int i = 0; i < n; i = i + 1) r = r + s;
+    return r;
+}
+```
+
+Napisy w maszynie wirtualnej żyją na dedykowanej stercie — rejestr przechowuje uchwyt (indeks),
+a literały trafiają do zaszyfrowanej puli w bloku `.scarlett` (format bajtkodu v2). Funkcje
+o sygnaturze z napisem używają rozszerzonego ABI (`scarlett_call_blob_str` / wariant z `ints[]`+`strs[]`).
+
+Celowo **nie** wspierane w tej wersji: indeksowanie/znaki (`s[i]`), porządkowanie napisów
+(`<`, `>` itp.), mutacja w miejscu, metody w stylu `s.length()` (parser nie obsługuje `.`),
+oraz mieszanie `int + string`. `len(s)` to funkcja wbudowana VM — plik źródłowy, który jej używa,
+kompiluje się natywnie dopiero po obfuskacji (w chronionej funkcji jest zastępowana bajtkodem).
 
 ## Potoki budowania
 

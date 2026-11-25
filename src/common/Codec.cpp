@@ -59,7 +59,6 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
     std::shuffle(res.opcodeMap.begin(), res.opcodeMap.end(), rng);
 
     std::vector<std::vector<uint8_t>> funcBytes(mod.functions.size());
-    uint32_t checksumInput = 0;
     std::vector<uint8_t> allDecoded;
     // petla serializuje instrukcje kazdej funkcji do bajtow (bez szyfrowania blokowego)
     for (size_t fi=0; fi<mod.functions.size(); ++fi) {
@@ -70,7 +69,7 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
             fb.push_back(res.opcodeMap[(int)ins.op]);
             switch (ins.op) {
                 case VMOp::NOP: break;
-                case VMOp::LOADI:
+                case VMOp::LOADI: case VMOp::LOADS:
                     fb.push_back((uint8_t)ins.dst);
                     putI32(fb, (int32_t)(ins.imm ^ res.constKey));
                     break;
@@ -79,8 +78,9 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
                 case VMOp::ADD: case VMOp::SUB: case VMOp::MUL: case VMOp::DIV: case VMOp::MOD:
                 case VMOp::CMPEQ: case VMOp::CMPNE: case VMOp::CMPLT: case VMOp::CMPLE: case VMOp::CMPGT: case VMOp::CMPGE:
                 case VMOp::AND: case VMOp::OR: case VMOp::XOR:
+                case VMOp::SCAT: case VMOp::SEQ: case VMOp::SNE:
                     fb.push_back((uint8_t)ins.dst); fb.push_back((uint8_t)ins.a); fb.push_back((uint8_t)ins.b); break;
-                case VMOp::NEG: case VMOp::NOT:
+                case VMOp::NEG: case VMOp::NOT: case VMOp::SLEN:
                     fb.push_back((uint8_t)ins.dst); fb.push_back((uint8_t)ins.a); break;
                 case VMOp::JMP:
                     putI32(fb, ins.target ^ (int32_t)res.constKey); break;
@@ -103,6 +103,11 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
         }
         funcBytes[fi] = fb;
         allDecoded.insert(allDecoded.end(), fb.begin(), fb.end());
+        // pula stringow wliczana do sumy kontrolnej (tresc jawna, w kolejnosci puli)
+        for (const std::string& s : f.strpool) {
+            putU16(allDecoded, (uint16_t)s.size());
+            allDecoded.insert(allDecoded.end(), s.begin(), s.end());
+        }
     }
     uint32_t checksum = fnv1a(allDecoded);
 
@@ -110,7 +115,7 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
 
     // Naglowek pliku: magic "SCVM", wersja, seed, klucze, mapa opkodow.
     out.push_back('S'); out.push_back('C'); out.push_back('V'); out.push_back('M');
-    putU32(out, 1);
+    putU32(out, 2);
     putU64(out, seed);
     putU32(out, res.constKey);
     putU32(out, res.blockKey);
@@ -128,6 +133,20 @@ EncodeResult encodeModule(const VMModule& mod, uint64_t seed) {
         out.push_back((uint8_t)f.retType);
         out.push_back((uint8_t)f.paramCount);
         putU16(out, (uint16_t)f.regCount);
+
+        // pula literalow napisowych funkcji (zaciemniona XOR-em z constKey i pozycja)
+        putU16(out, (uint16_t)f.strpool.size());
+        for (size_t p = 0; p < f.strpool.size(); ++p) {
+            const std::string& s = f.strpool[p];
+            putU16(out, (uint16_t)s.size());
+            // petla szyfruje bajty napisu XOR-em z constKey oraz pozycja (indeks puli + offset)
+            for (size_t k = 0; k < s.size(); ++k) {
+                uint8_t c = (uint8_t)s[k];
+                c ^= (uint8_t)(res.constKey >> ((k % 4) * 8));
+                c ^= (uint8_t)((p * 7 + k) & 0xFF);
+                out.push_back(c);
+            }
+        }
 
         std::vector<uint8_t> enc = funcBytes[fi];
         // petla szyfruje kazdy bajt kodu funkcji XOR-em z blockKey i pozycja bajtu
@@ -154,7 +173,7 @@ VMModule decodeModule(const std::vector<uint8_t>& bytes, std::string& error, boo
     }
     i = 4;
     uint32_t version = getU32(bytes, i);
-    if (version != 1) {         error = "zla wersja"; return mod; }
+    if (version != 2) {         error = "zla wersja"; return mod; }
     uint64_t seed = getU64(bytes, i);
     uint32_t constKey = getU32(bytes, i);
     uint32_t blockKey = getU32(bytes, i);
@@ -180,6 +199,26 @@ VMModule decodeModule(const std::vector<uint8_t>& bytes, std::string& error, boo
         uint8_t retType = getU8(bytes,i);
         uint8_t paramCount = getU8(bytes,i);
         uint16_t regCount = getU16(bytes,i);
+
+        // pula literalow napisowych funkcji (odszyfrowanie odwrotne do encodeModule)
+        uint16_t strCount = getU16(bytes,i);
+        std::vector<std::string> strpool;
+        std::vector<uint8_t> strpoolPlain;   // tresc jawna do sumy kontrolnej
+        for (uint16_t p = 0; p < strCount; ++p) {
+            uint16_t slen = getU16(bytes,i);
+            std::string s;
+            // petla odszyfrowuje bajty napisu (odwrotnosc zaciemnienia z encodeModule)
+            for (uint16_t k = 0; k < slen; ++k) {
+                uint8_t c = getU8(bytes,i);
+                c ^= (uint8_t)(constKey >> ((k % 4) * 8));
+                c ^= (uint8_t)(((size_t)p * 7 + k) & 0xFF);
+                s.push_back((char)c);
+            }
+            strpool.push_back(s);
+            putU16(strpoolPlain, (uint16_t)s.size());
+            strpoolPlain.insert(strpoolPlain.end(), s.begin(), s.end());
+        }
+
         uint32_t codeSize = getU32(bytes,i);
 
         std::vector<uint8_t> enc(bytes.begin()+i, bytes.begin()+i+codeSize);
@@ -193,12 +232,15 @@ VMModule decodeModule(const std::vector<uint8_t>& bytes, std::string& error, boo
             dec[k] ^= (uint8_t)(k & 0xFF);
         }
         allDecoded.insert(allDecoded.end(), dec.begin(), dec.end());
+        // pula stringow wliczana do sumy kontrolnej (ta sama kolejnosc co w encodeModule)
+        allDecoded.insert(allDecoded.end(), strpoolPlain.begin(), strpoolPlain.end());
 
         VMFunction vf;
         vf.name = name;
         vf.retType = (ValueType)retType;
         vf.paramCount = paramCount;
         vf.regCount = regCount;
+        vf.strpool = strpool;
         size_t j = 0;
         // petla odtwarza instrukcje funkcji, dekodujac opkod po opkodzie
         while (j < dec.size()) {
@@ -209,7 +251,7 @@ VMModule decodeModule(const std::vector<uint8_t>& bytes, std::string& error, boo
             VMInst ins; ins.op = op;
             switch (op) {
                 case VMOp::NOP: break;
-                case VMOp::LOADI:
+                case VMOp::LOADI: case VMOp::LOADS:
                     ins.dst = dec[j++];
                     ins.imm = (int32_t)getU32(dec, j) ^ (int32_t)constKey;
                     break;
@@ -218,8 +260,9 @@ VMModule decodeModule(const std::vector<uint8_t>& bytes, std::string& error, boo
                 case VMOp::ADD: case VMOp::SUB: case VMOp::MUL: case VMOp::DIV: case VMOp::MOD:
                 case VMOp::CMPEQ: case VMOp::CMPNE: case VMOp::CMPLT: case VMOp::CMPLE: case VMOp::CMPGT: case VMOp::CMPGE:
                 case VMOp::AND: case VMOp::OR: case VMOp::XOR:
+                case VMOp::SCAT: case VMOp::SEQ: case VMOp::SNE:
                     ins.dst = dec[j++]; ins.a = dec[j++]; ins.b = dec[j++]; break;
-                case VMOp::NEG: case VMOp::NOT:
+                case VMOp::NEG: case VMOp::NOT: case VMOp::SLEN:
                     ins.dst = dec[j++]; ins.a = dec[j++]; break;
                 case VMOp::JMP:
                     ins.target = (int32_t)getU32(dec, j) ^ (int32_t)constKey; break;

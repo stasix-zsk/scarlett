@@ -10,9 +10,10 @@
 namespace scarlett {
 
 struct Expr {
-    enum Kind { IntLit, BoolLit, Var, Binary, Unary, Call } kind;
+    enum Kind { IntLit, BoolLit, StrLit, Var, Binary, Unary, Call } kind;
     long long intVal = 0;          // wartosc dla IntLit
     bool boolVal = false;          // wartosc dla BoolLit
+    std::string strVal;            // wartosc dla StrLit (tresc literalu napisowego)
     std::string name;              // nazwa zmiennej (Var) lub funkcji (Call)
     std::string op;                // operator dla Binary/Unary (np. "+", "!")
     std::shared_ptr<Expr> left, right, operand;

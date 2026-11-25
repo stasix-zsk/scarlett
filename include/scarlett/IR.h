@@ -20,6 +20,8 @@ enum class IROp {
     AND, OR, XOR, NOT,
     JMP, JMPIF,
     CALL, RET, RETV,
+    LOADS,                  // zaladuj literal napisowy (imm = indeks w puli stringow)
+    SCAT, SLEN, SEQ, SNE,   // konkatenacja / dlugosc / rownosc / nierownosc napisow
     LABEL
 };
 
@@ -43,6 +45,7 @@ struct IRFunction {
     int regCount = 0;          // liczba rejestrow uzytych przez funkcje
     bool isProtected = false;  // czy funkcja ma byc chroniona (vm_protect)
     std::string vmName;        // losowa nazwa funkcji uzywana w VM
+    std::vector<std::string> strpool;  // pula literalow napisowych (LOADS indeksuje po niej)
 };
 
 struct IRModule {
