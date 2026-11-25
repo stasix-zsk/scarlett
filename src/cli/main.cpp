@@ -44,6 +44,7 @@ static std::string typeStr(scarlett::ValueType t) {
     using scarlett::ValueType;
     if (t == ValueType::Int) return "int";
     if (t == ValueType::Bool) return "bool";
+    if (t == ValueType::Str) return "std::string";
     return "void";
 }
 
@@ -114,7 +115,8 @@ int main(int argc, char** argv) {
     std::ostringstream cpp;
     cpp << "#include \"scarlett/Runtime.h\"\n";
     cpp << "#include <cstddef>\n";
-    cpp << "#include <cstdlib>\n\n";
+    cpp << "#include <cstdlib>\n";
+    cpp << "#include <string>\n\n";
 
     std::string blobVar = randIdent();
     cpp << "static const unsigned char " << blobVar << "[] = {\n";
@@ -133,6 +135,11 @@ int main(int argc, char** argv) {
     // petla generuje kod kazdej funkcji: trampoline dla chronionych, oryginal dla reszty
     for (auto& f : prog.functions) {
         if (f.protect) {
+            // czy sygnatura dotyka napisow? decyduje o wyborze ABI
+            using scarlett::ValueType;
+            bool sigHasStr = (f.retType == ValueType::Str);
+            for (auto& pr : f.params) if (pr.type == ValueType::Str) sigHasStr = true;
+
             // chroniona funkcja: trampolina wywoluje scarlett_call_blob, oryginalne cialo znika
             cpp << typeStr(f.retType) << " " << f.name << "(";
             // petla zapisuje liste parametrow w sygnaturze trampoliny
@@ -141,25 +148,62 @@ int main(int argc, char** argv) {
                 cpp << typeStr(f.params[p].type) << " " << f.params[p].name;
             }
             cpp << ") {\n";
-            std::string vArgs = randIdent();
             std::string vOk = randIdent();
             std::string vRes = randIdent();
             std::string callName = f.vmName.empty() ? f.name : f.vmName;
-            cpp << "    long long " << vArgs << "[] = {";
-            // petla zapisuje argumenty wywolania do tablicy przekazywanej do VM
-            for (size_t p = 0; p < f.params.size(); ++p) { if (p) cpp << ","; cpp << f.params[p].name; }
-            if (f.params.empty()) cpp << "0";
-            cpp << "};\n";
-            cpp << "    int " << vOk << " = 1;\n";
-            if (f.retType == scarlett::ValueType::Void) {
-                cpp << "    (void)scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vArgs << ", " << f.params.size() << ", &" << vOk << ");\n";
-                cpp << "    if (!" << vOk << ") std::abort();\n";
-                cpp << "}\n\n";
+
+            if (!sigHasStr) {
+                // sygnatura wylacznie int/bool/void: stare ABI (long long)
+                std::string vArgs = randIdent();
+                cpp << "    long long " << vArgs << "[] = {";
+                for (size_t p = 0; p < f.params.size(); ++p) { if (p) cpp << ","; cpp << f.params[p].name; }
+                if (f.params.empty()) cpp << "0";
+                cpp << "};\n";
+                cpp << "    int " << vOk << " = 1;\n";
+                if (f.retType == ValueType::Void) {
+                    cpp << "    (void)scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vArgs << ", " << f.params.size() << ", &" << vOk << ");\n";
+                    cpp << "    if (!" << vOk << ") std::abort();\n";
+                    cpp << "}\n\n";
+                } else {
+                    cpp << "    long long " << vRes << " = scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vArgs << ", " << f.params.size() << ", &" << vOk << ");\n";
+                    cpp << "    if (!" << vOk << ") std::abort();\n";
+                    cpp << "    return (" << typeStr(f.retType) << ")" << vRes << ";\n";
+                    cpp << "}\n\n";
+                }
             } else {
-                cpp << "    long long " << vRes << " = scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vArgs << ", " << f.params.size() << ", &" << vOk << ");\n";
-                cpp << "    if (!" << vOk << ") std::abort();\n";
-                cpp << "    return (" << typeStr(f.retType) << ")" << vRes << ";\n";
-                cpp << "}\n\n";
+                // sygnatura zawiera string: ABI przekazujace rownolegle tablice ints[]/strs[]
+                std::string vInts = randIdent();
+                std::string vStrs = randIdent();
+                cpp << "    long long " << vInts << "[] = {";
+                for (size_t p = 0; p < f.params.size(); ++p) {
+                    if (p) cpp << ",";
+                    cpp << (f.params[p].type == ValueType::Str ? std::string("0") : f.params[p].name);
+                }
+                if (f.params.empty()) cpp << "0";
+                cpp << "};\n";
+                cpp << "    const char* " << vStrs << "[] = {";
+                for (size_t p = 0; p < f.params.size(); ++p) {
+                    if (p) cpp << ",";
+                    cpp << (f.params[p].type == ValueType::Str ? (f.params[p].name + ".c_str()") : std::string("nullptr"));
+                }
+                if (f.params.empty()) cpp << "nullptr";
+                cpp << "};\n";
+                cpp << "    int " << vOk << " = 1;\n";
+                if (f.retType == ValueType::Str) {
+                    cpp << "    std::string " << vRes << " = scarlett::scarlett_call_blob_str(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vInts << ", " << vStrs << ", " << f.params.size() << ", &" << vOk << ");\n";
+                    cpp << "    if (!" << vOk << ") std::abort();\n";
+                    cpp << "    return " << vRes << ";\n";
+                    cpp << "}\n\n";
+                } else if (f.retType == ValueType::Void) {
+                    cpp << "    (void)scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vInts << ", " << vStrs << ", " << f.params.size() << ", &" << vOk << ");\n";
+                    cpp << "    if (!" << vOk << ") std::abort();\n";
+                    cpp << "}\n\n";
+                } else {
+                    cpp << "    long long " << vRes << " = scarlett::scarlett_call_blob(" << blobVar << ", sizeof(" << blobVar << "), \"" << callName << "\", " << vInts << ", " << vStrs << ", " << f.params.size() << ", &" << vOk << ");\n";
+                    cpp << "    if (!" << vOk << ") std::abort();\n";
+                    cpp << "    return (" << typeStr(f.retType) << ")" << vRes << ";\n";
+                    cpp << "}\n\n";
+                }
             }
         } else {
             // niechroniona funkcja: przepisywana bez zmian, tak jak w zrodle
