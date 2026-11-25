@@ -69,6 +69,7 @@ pod `demo` i `more`, a nie generowane automatycznie dla dowolnej nazwy pliku.
 - `scarlett_tests` – VM, rekurencja, integralność
 - `scarlett_diff_tests` – zgodność z wersją natywną
 - `scarlett_fuzz_tests` – 1000 iteracji
+- `scarlett_for_tests` – petle `for` (lowering i wykonanie)
 
 ## Zakres M4
 
@@ -110,3 +111,14 @@ Celowo **nie** wspierane w tej wersji: indeksowanie/znaki (`s[i]`), porządkowan
 (`<`, `>` itp.), mutacja w miejscu, metody w stylu `s.length()` (parser nie obsługuje `.`),
 oraz mieszanie `int + string`. `len(s)` to funkcja wbudowana VM — plik źródłowy, który jej używa,
 kompiluje się natywnie dopiero po obfuskacji (w chronionej funkcji jest zastępowana bajtkodem).
+
+## Potoki budowania
+
+- **Stabilny**: budowy Release na `main` i tagach, z publikowanymi wydaniami wersjonowanymi.
+- **Niestabilny**: budowy Debug na pull requestach i branchach feature, przesylane jako artefakty CI bez wydania.
+
+## Wydania i tagi
+
+Przeplywy GitHub Actions utrzymuja niestabilny, przewijany tag/wydanie `latest` przy kazdym
+udanym pushu do `main`. To wydanie zawsze zawiera swiezo zbudowane pliki binarne dla
+Linux, Windows i macOS. Tagi wersjonowane `vX.Y.Z` to stabilny kanal wydan.

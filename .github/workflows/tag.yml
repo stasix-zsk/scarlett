@@ -7,18 +7,30 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
-  tag:
+  create:
     name: Create tag
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      tag: ${{ steps.create.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create and push tag
+        id: create
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "${{ inputs.tag }}"
           git push origin "${{ inputs.tag }}"
+          echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Publish release assets
+    needs: create
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.create.outputs.tag }}

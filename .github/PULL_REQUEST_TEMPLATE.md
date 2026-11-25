@@ -40,4 +40,3 @@ Closes #
 ## Screenshots / Logs (if applicable)
 
 ## Additional Notes
-EOF
