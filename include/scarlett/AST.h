@@ -20,11 +20,13 @@ struct Expr {
 };
 
 struct Stmt {
-    enum Kind { Block, VarDecl, Assign, If, While, Return, ExprStmt } kind;
+    enum Kind { Block, VarDecl, Assign, If, While, For, Return, ExprStmt } kind;
     ValueType type = ValueType::Int;
     std::string name;
     std::shared_ptr<Expr> init, cond, expr;
+    std::shared_ptr<Expr> forPost;         // wyrazenie kroku petli for (po kazdej iteracji), moze byc puste
     std::shared_ptr<Stmt> thenStmt, elseStmt, body;
+    std::shared_ptr<Stmt> forInit;         // instrukcja inicjujaca petli for (deklaracja lub przypisanie), moze byc pusta
     std::vector<std::shared_ptr<Stmt>> stmts;
 };
 

@@ -160,6 +160,27 @@ struct Lowerer {
             IRInst labe; labe.op=IROp::LABEL; labe.label=Lend; fn.code.push_back(labe);
             return;
         }
+        if (s->kind == Stmt::For) {
+            // for desugaruje sie do: init ; start: if(cond) goto body else goto end ;
+            //                        body: <cialo> ; <krok> ; goto start ; end:
+            if (s->forInit) lowerStmt(s->forInit);
+            std::string Lstart = "L"+std::to_string(fn.code.size())+"fs";
+            std::string Lbody  = "L"+std::to_string(fn.code.size())+"fb";
+            std::string Lend   = "L"+std::to_string(fn.code.size())+"fe";
+            IRInst lab; lab.op=IROp::LABEL; lab.label=Lstart; fn.code.push_back(lab);
+            if (s->cond) {
+                // pusty warunek (for(;;)) = petla bez testu, wychodzi tylko przez return
+                int c = lowerExpr(s->cond);
+                IRInst bif; bif.op=IROp::JMPIF; bif.a=c; bif.label=Lbody; fn.code.push_back(bif);
+                IRInst jmp; jmp.op=IROp::JMP; jmp.label=Lend; fn.code.push_back(jmp);
+                IRInst labb; labb.op=IROp::LABEL; labb.label=Lbody; fn.code.push_back(labb);
+            }
+            lowerStmt(s->body);
+            if (s->forPost) lowerExpr(s->forPost);
+            IRInst jmp2; jmp2.op=IROp::JMP; jmp2.label=Lstart; fn.code.push_back(jmp2);
+            IRInst labe; labe.op=IROp::LABEL; labe.label=Lend; fn.code.push_back(labe);
+            return;
+        }
         if (s->kind == Stmt::Return) {
             if (s->expr) {
                 int v = lowerExpr(s->expr);

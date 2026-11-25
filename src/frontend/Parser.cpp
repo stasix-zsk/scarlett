@@ -24,7 +24,7 @@ void Parser::tokenize() {
         if (isIdentStart(c)) {
             size_t j=i; while (j<src_.size() && isIdentChar(src_[j])) ++j; // zbiera znaki identyfikatora
             t.type=Token::Ident; t.text=src_.substr(i,j-i); i=j;
-            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
+            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="for"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
         } else if (std::isdigit((unsigned char)c)) {
             size_t j=i; while (j<src_.size() && std::isdigit((unsigned char)src_[j])) ++j; // zbiera cyfry liczby
             t.type=Token::Number; t.text=src_.substr(i,j-i); i=j;
@@ -150,6 +150,36 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
         auto s=std::make_shared<Stmt>(); s->kind=Stmt::While; s->cond=c; s->body=b;
         return s;
     }
+    if (peek().text=="for") {
+        // for ( init ; cond ; post ) body
+        // kazda z trzech klauzul moze byc pusta (np. for(;;) to nieskonczona petla)
+        next();
+        expect("(");
+        auto s=std::make_shared<Stmt>(); s->kind=Stmt::For;
+        // klauzula inicjujaca: deklaracja zmiennej (int/bool) albo wyrazenie, moze byc pusta
+        if (peek().text!=";") {
+            if (peek().text=="int"||peek().text=="bool"||peek().text=="void") {
+                ValueType t=parseType();
+                auto d=std::make_shared<Stmt>(); d->kind=Stmt::VarDecl; d->type=t;
+                if (peek().type==Token::Ident) d->name=next().text;
+                if (match("=")) d->init=parseExpr();
+                s->forInit=d;
+            } else {
+                auto e=parseExpr();
+                auto es=std::make_shared<Stmt>(); es->kind=Stmt::ExprStmt; es->expr=e;
+                s->forInit=es;
+            }
+        }
+        expect(";");
+        // klauzula warunku: pusta oznacza warunek zawsze prawdziwy
+        if (peek().text!=";") s->cond=parseExpr();
+        expect(";");
+        // klauzula kroku: wyrazenie wykonywane po kazdej iteracji, moze byc puste
+        if (peek().text!=")") s->forPost=parseExpr();
+        expect(")");
+        s->body=parseStmt();
+        return s;
+    }
     if (peek().text=="return") {
         next();
         auto s=std::make_shared<Stmt>(); s->kind=Stmt::Return;
@@ -157,6 +187,7 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
         expect(";");
         return s;
     }
+    if (peek().text==";") { next(); auto s=std::make_shared<Stmt>(); s->kind=Stmt::Block; return s; } // pusta instrukcja, np. cialo for(;;); lub while(cond);
     if (peek().text=="{") return parseBlock();
     if (peek().text=="int"||peek().text=="bool"||peek().text=="void") {
         ValueType t=parseType();
