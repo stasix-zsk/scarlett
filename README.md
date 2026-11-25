@@ -1,5 +1,10 @@
 # Scarlett VM
 
+[![CI](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml)
+[![Build](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/stasix-zsk/scarlett?include_prereleases&label=latest)](https://github.com/stasix-zsk/scarlett/releases/latest)
+[![CodeQL](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml)
+
 A C++ code obfuscator based on a virtual machine (M4 core).
 
 ## Building
@@ -69,17 +74,25 @@ for `demo` and `more`, not generated automatically for arbitrary file names.
 - `scarlett_tests` – VM, recursion, integrity
 - `scarlett_diff_tests` – agreement with the native version
 - `scarlett_fuzz_tests` – 1000 iterations
+- `scarlett_for_tests` – `for` loop lowering and execution
 
 ## M4 scope
 
-Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, function calls, return.
+Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, for, function calls, return.
 Protected functions work end-to-end through the ABI (arguments and result) and return the same result as the native version.
+
+## Build pipelines
+
+- **Stable**: Release builds on `main` and tags, with published versioned releases.
+- **Unstable**: Debug builds on pull requests and feature branches, uploaded as
+  CI artifacts without creating a release.
 
 ## Releases and tags
 
-The GitHub Actions workflows keep a rolling `latest` tag/release updated on every
-successful push to `main`. That release always contains freshly built binaries
-for Linux, Windows and macOS.
+The GitHub Actions workflows keep an unstable rolling `latest` tag/release updated
+on every successful push to `main`. That release always contains freshly built
+binaries for Linux, Windows and macOS. Versioned `vX.Y.Z` tags are the stable
+release channel.
 
 A versioned release tag (`vX.Y.Z`) is created instead when a push or build is
 run with release parameters:

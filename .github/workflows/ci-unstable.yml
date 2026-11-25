@@ -1,0 +1,53 @@
+name: CI (Unstable)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+    tags-ignore: ['**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-unstable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / Debug
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --config Debug --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Debug --output-on-failure
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          bin="$(find build -type f \( -name 'scarlett' -o -name 'scarlett.exe' \) | head -n 1)"
+          if [ -n "$bin" ]; then
+            case "${{ matrix.os }}" in
+              ubuntu-latest) cp "$bin" scarlett-unstable-linux ;;
+              windows-latest) cp "$bin" scarlett-unstable-windows.exe ;;
+              macos-latest) cp "$bin" scarlett-unstable-macos ;;
+            esac
+          fi
+
+      - name: Upload unstable artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scarlett-unstable-${{ matrix.os }}
+          path: scarlett-unstable-*
+          if-no-files-found: ignore

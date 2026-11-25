@@ -69,8 +69,21 @@ pod `demo` i `more`, a nie generowane automatycznie dla dowolnej nazwy pliku.
 - `scarlett_tests` – VM, rekurencja, integralność
 - `scarlett_diff_tests` – zgodność z wersją natywną
 - `scarlett_fuzz_tests` – 1000 iteracji
+- `scarlett_for_tests` – petle `for` (lowering i wykonanie)
 
 ## Zakres M4
 
-Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, wywołania funkcji, return.
+Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, for, wywołania funkcji, return.
 Chronione funkcje działają end-to-end przez ABI (argumenty i wynik) i zwracają ten sam wynik co wersja natywna.
+
+
+## Potoki budowania
+
+- **Stabilny**: budowy Release na `main` i tagach, z publikowanymi wydaniami wersjonowanymi.
+- **Niestabilny**: budowy Debug na pull requestach i branchach feature, przesylane jako artefakty CI bez wydania.
+
+## Wydania i tagi
+
+Przeplywy GitHub Actions utrzymuja niestabilny, przewijany tag/wydanie `latest` przy kazdym
+udanym pushu do `main`. To wydanie zawsze zawiera swiezo zbudowane pliki binarne dla
+Linux, Windows i macOS. Tagi wersjonowane `vX.Y.Z` to stabilny kanal wydan.
