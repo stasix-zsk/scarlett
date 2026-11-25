@@ -72,8 +72,45 @@ for `demo` and `more`, not generated automatically for arbitrary file names.
 
 ## M4 scope
 
-Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, function calls, return.
+Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, for, function calls, return, recursion.
 Protected functions work end-to-end through the ABI (arguments and result) and return the same result as the native version.
+
+### Strings
+
+The `string` type (written as `string` or `std::string`) is a first-class type — it works for
+local variables, parameters and return values of protected functions. Supported operations:
+
+- string literals, e.g. `"abc"` (with escapes `\n \t \r \0 \\ \"`),
+- concatenation with `+`,
+- equality `==` and inequality `!=` (result `bool`/`int`),
+- length via the built-in `len(s)` (returns `int`; also available as `length(s)`/`size(s)`).
+
+Example (`examples/strings.cpp`):
+
+```cpp
+[[vm_protect]] std::string join(std::string a, std::string b) {
+    return a + "/" + b;              // concatenation + literal
+}
+[[vm_protect]] int same(std::string a, std::string b) {
+    if (a == b) return 1;            // string comparison
+    return 0;
+}
+[[vm_protect]] std::string repeat(std::string s, int n) {
+    std::string r = "";
+    for (int i = 0; i < n; i = i + 1) r = r + s;
+    return r;
+}
+```
+
+Inside the VM strings live on a dedicated heap — a register holds a handle (index) and literals
+go into an encrypted per-function pool in the `.scarlett` block (bytecode format v2). Functions
+whose signature contains a string use the extended ABI (`scarlett_call_blob_str` / the `ints[]`+`strs[]`
+variant).
+
+Deliberately **not** supported in this version: indexing/characters (`s[i]`), string ordering
+(`<`, `>`, …), in-place mutation, method-style calls such as `s.length()` (the parser does not
+handle `.`), and mixing `int + string`. `len(s)` is a VM built-in — a source file using it compiles
+natively only after obfuscation (inside a protected function it is replaced by bytecode).
 
 ## Releases and tags
 
