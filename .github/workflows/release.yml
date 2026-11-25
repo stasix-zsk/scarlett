@@ -3,13 +3,15 @@ on:
   push:
     tags:
       - "v*"
+      - "latest"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     name: Build release asset (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -25,20 +27,30 @@ jobs:
 
       - name: Strip binary (Unix)
         if: runner.os != 'Windows'
-        run: strip build/scarlett 2>/dev/null || true
+        shell: bash
+        run: |
+          bin="$(find build -type f -name 'scarlett' | head -n 1)"
+          if [ -n "$bin" ]; then strip "$bin" || true; fi
 
       - name: Prepare asset name
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cp build/scarlett.exe "scarlett-windows.exe"
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            cp build/scarlett "scarlett-macos"
-          else
-            cp build/scarlett "scarlett-linux"
+          bin="$(find build -type f \( -name 'scarlett' -o -name 'scarlett.exe' \) | head -n 1)"
+          if [ -z "$bin" ]; then
+            echo "No compiled scarlett binary found"
+            find build -type f
+            exit 1
           fi
+          case "$RUNNER_OS" in
+            Windows) cp "$bin" scarlett-windows.exe ;;
+            macOS) cp "$bin" scarlett-macos ;;
+            *) cp "$bin" scarlett-linux ;;
+          esac
+          ls -l scarlett-*
 
       - name: Upload to GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: scarlett-*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

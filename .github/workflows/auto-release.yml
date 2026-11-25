@@ -5,33 +5,66 @@ on:
     types: [completed]
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   release:
-    name: Create stable release
+    name: Update rolling or release tag
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Read version
+      - name: Resolve version
         id: version
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Create tag if missing
         run: |
-          TAG="v${{ steps.version.outputs.version }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag "$TAG"
-            git push origin "$TAG"
+          version="${{ github.event.workflow_run.inputs.version }}"
+          if [ -z "$version" ]; then
+            version="$(cat VERSION)"
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Tag created; release workflow will publish assets
+      - name: Determine release mode
+        id: mode
+        run: |
+          release="false"
+          message="$(git log -1 --pretty=%B)"
+          if printf '%s\n' "$message" | grep -Eq '\[release\]|^release:|release:[[:space:]]'; then
+            release="true"
+          fi
+          if [ "${{ github.event.workflow_run.inputs.release }}" = "true" ]; then
+            release="true"
+          fi
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            if ! git diff --quiet HEAD~1 HEAD -- VERSION; then
+              release="true"
+            fi
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update tag
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          sha="${{ github.event.workflow_run.head_sha }}"
+
+          if [ "${{ steps.mode.outputs.release }}" = "true" ]; then
+            tag="v${{ steps.version.outputs.version }}"
+            if git rev-parse "$tag" >/dev/null 2>&1; then
+              echo "Release tag $tag already exists; leaving it unchanged"
+            else
+              git tag "$tag" "$sha"
+              git push origin "$tag"
+              echo "Created release tag $tag"
+            fi
+          else
+            tag="latest"
+            git tag -f "$tag" "$sha"
+            git push -f origin "$tag"
+            echo "Updated rolling tag $tag to $sha"
+          fi

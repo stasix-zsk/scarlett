@@ -5,6 +5,15 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a versioned release tag after a successful build"
+        type: boolean
+        default: false
+      version:
+        description: "Version to release (overrides VERSION)"
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -31,14 +40,30 @@ jobs:
 
       - name: Strip binaries (Unix)
         if: runner.os != 'Windows'
+        shell: bash
         run: |
-          find build -type f -perm -111 -exec strip {} \; 2>/dev/null || true
+          bin="$(find build -type f -name 'scarlett' | head -n 1)"
+          if [ -n "$bin" ]; then strip "$bin" || true; fi
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          bin="$(find build -type f \( -name 'scarlett' -o -name 'scarlett.exe' \) | head -n 1)"
+          if [ -z "$bin" ]; then
+            echo "No compiled scarlett binary found"
+            find build -type f
+            exit 1
+          fi
+          case "${{ matrix.os }}" in
+            ubuntu-latest) cp "$bin" scarlett-linux ;;
+            windows-latest) cp "$bin" scarlett-windows.exe ;;
+            macos-latest) cp "$bin" scarlett-macos ;;
+          esac
+          ls -l scarlett-*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: scarlett-${{ matrix.os }}
-          path: |
-            build/scarlett
-            build/scarlett.exe
-          if-no-files-found: ignore
+          path: scarlett-*
+          if-no-files-found: error
