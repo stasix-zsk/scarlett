@@ -13,7 +13,7 @@
 static long long native(int n){
     long long s=0;
     // petla liczy sume kwadratow liczb od 0 do n (referencja dla VM)
-    for(int i=0;i<=n;++i) s+=i*i;
+    for(int i=0;i<=n;++i) s+=static_cast<long long>(i)*i;
     return s;
 }
 
