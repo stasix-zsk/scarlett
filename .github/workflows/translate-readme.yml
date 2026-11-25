@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
   group: translate-readme
@@ -24,31 +23,34 @@ jobs:
       matrix:
         include:
           - language: Polish
+            code: pl
             file: README_PL.md
           - language: Spanish
+            code: es
             file: README_ES.md
           - language: German
+            code: de
             file: README_DE.md
           - language: Simplified Chinese
+            code: zh-CN
             file: README_ZH.md
           - language: Russian
+            code: ru
             file: README_RU.md
     steps:
       - uses: actions/checkout@v4
 
       - name: Translate README
-        uses: FidelusAleksander/ai-translate-action@v1
-        id: translate
+        uses: offensive-vk/auto-translate@v7
         with:
-          text-file: README.md
-          target-language: ${{ matrix.language }}
-          custom-instructions: "Translate the Markdown documentation faithfully. Keep code blocks, commands, URLs, badges, file names, technical terms, and Markdown structure unchanged."
+          file: README.md
+          language: ${{ matrix.code }}
 
-      - name: Save translation
+      - name: Normalize translated file name
         run: |
-          printf '%s\n' "$TRANSLATED_TEXT" > "${{ matrix.file }}"
-        env:
-          TRANSLATED_TEXT: ${{ steps.translate.outputs.translated-text }}
+          if [ -f "README.${{ matrix.code }}.md" ]; then
+            mv "README.${{ matrix.code }}.md" "${{ matrix.file }}"
+          fi
 
       - name: Upload translation
         uses: actions/upload-artifact@v4
