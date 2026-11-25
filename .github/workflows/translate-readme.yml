@@ -1,0 +1,80 @@
+name: Translate README
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  models: read
+
+concurrency:
+  group: translate-readme
+  cancel-in-progress: true
+
+jobs:
+  translate:
+    name: Translate README to ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: Spanish
+            file: README_ES.md
+          - language: German
+            file: README_DE.md
+          - language: Simplified Chinese
+            file: README_ZH.md
+          - language: Russian
+            file: README_RU.md
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Translate README
+        uses: FidelusAleksander/ai-translate-action@v1
+        id: translate
+        with:
+          text-file: README.md
+          target-language: ${{ matrix.language }}
+          custom-instructions: "Translate the Markdown documentation faithfully. Keep code blocks, commands, URLs, badges, file names, technical terms, and Markdown structure unchanged."
+
+      - name: Save translation
+        run: |
+          printf '%s\n' "$TRANSLATED_TEXT" > "${{ matrix.file }}"
+        env:
+          TRANSLATED_TEXT: ${{ steps.translate.outputs.translated-text }}
+
+      - name: Upload translation
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-${{ matrix.language }}
+          path: ${{ matrix.file }}
+
+  commit:
+    name: Commit translated READMEs
+    needs: translate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download translations
+        uses: actions/download-artifact@v4
+        with:
+          path: .
+          merge-multiple: true
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README_ES.md README_DE.md README_ZH.md README_RU.md
+          if git diff --cached --quiet; then
+            echo "No translation changes to commit."
+            exit 0
+          fi
+          git commit -m "docs: update translated READMEs"
+          git push
