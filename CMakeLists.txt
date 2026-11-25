@@ -47,3 +47,7 @@ add_test(NAME scarlett_diff_tests COMMAND scarlett_diff_tests)
 add_executable(scarlett_fuzz_tests tests/test_fuzz.cpp)
 target_link_libraries(scarlett_fuzz_tests PRIVATE scarlett_runtime)
 add_test(NAME scarlett_fuzz_tests COMMAND scarlett_fuzz_tests)
+
+add_executable(scarlett_for_tests tests/test_for.cpp)
+target_link_libraries(scarlett_for_tests PRIVATE scarlett_runtime)
+add_test(NAME scarlett_for_tests COMMAND scarlett_for_tests)
