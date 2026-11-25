@@ -38,7 +38,7 @@ jobs:
             code: ru
             file: README_RU.md
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Translate README
         uses: offensive-vk/auto-translate@v7
@@ -63,7 +63,7 @@ jobs:
     needs: translate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download translations
         uses: actions/download-artifact@v4
