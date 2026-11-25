@@ -1,10 +1,10 @@
 # Scarlett VM
 
-Obfuskator kodu C++ oparty na maszynie wirtualnej (rdzeń M4).
+A C++ code obfuscator based on a virtual machine (M4 core).
 
-## Budowanie
+## Building
 
-Windows (Visual Studio 2022, z PowerShell w katalogu projektu):
+Windows (Visual Studio 2022, from PowerShell in the project directory):
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022"
@@ -12,32 +12,32 @@ cmake --build build --config Release
 ctest --test-dir build -C Release
 ```
 
-Wynikowe pliki trafiają do `build\Release\` (m.in. `scarlett.exe`, `scarlett_runtime.lib`).
-Uruchamiając cokolwiek z katalogu projektu w PowerShell, pamiętaj o prefiksie `.\` przed ścieżką
-(np. `.\build\Release\scarlett.exe`, nie samo `build\Release\scarlett.exe`) — bez niego PowerShell
-czasem próbuje potraktować pierwszy człon ścieżki jako nazwę modułu do zaimportowania.
+Build outputs are placed in `build\Release\` (including `scarlett.exe` and `scarlett_runtime.lib`).
+When running anything from the project directory in PowerShell, remember the `.\` prefix before the path
+(e.g. `.\build\Release\scarlett.exe`, not `build\Release\scarlett.exe`) — without it PowerShell may
+occasionally try to treat the first path component as a module name to import.
 
-## Użycie — generowanie chronionej wersji
+## Usage — generating a protected version
 
 ```powershell
 .\build\Release\scarlett.exe --input examples\demo.cpp --protect mul,factorial --outdir out --seed 42
 .\build\Release\scarlett.exe --input examples\more.cpp --protect fib,sum,max2 --outdir out --seed 42
 ```
 
-Każde wywołanie generuje w folderze `out` trzy pliki: `<nazwa>.protected.cpp`, `<nazwa>.scarlett`, `<nazwa>.meta`.
-`.scarlett` i `.meta` to tylko podgląd/metadane zaszyfrowanego bloku — do uruchomienia programu
-wystarczy sam `.protected.cpp`, bo zaszyfrowany bajtkod jest zaszyty bezpośrednio w jego kodzie
-jako statyczna tablica bajtów.
+Each invocation generates three files in the `out` folder: `<name>.protected.cpp`, `<name>.scarlett`, `<name>.meta`.
+The `.scarlett` and `.meta` files are only a preview/metadata of the encrypted block — to run the program
+the `.protected.cpp` file alone is enough, because the encrypted bytecode is embedded directly in its code
+as a static byte array.
 
-## Uruchomienie chronionej wersji
+## Running the protected version
 
-`<nazwa>.protected.cpp` nie jest samowystarczalny — wywołuje `scarlett::scarlett_call_blob`
-z biblioteki `scarlett_runtime`, więc musi być z nią zlinkowany (tak samo jak w `CMakeLists.txt`
-dla `scarlett_runtime`/`scarlett`).
+`<name>.protected.cpp` is not self-contained — it calls `scarlett::scarlett_call_blob`
+from the `scarlett_runtime` library, so it must be linked against it (just like in `CMakeLists.txt`
+for `scarlett_runtime`/`scarlett`).
 
-Projekt ma już gotowe, warunkowe cele CMake dla przykładów z `examples/`: `demo_protected`
-(z `out/demo.protected.cpp`) i `more_protected` (z `out/more.protected.cpp`). Pojawiają się
-w buildzie dopiero po wygenerowaniu odpowiedniego pliku `.protected.cpp` i ponownej konfiguracji:
+The project already provides conditional CMake targets for the examples in `examples/`: `demo_protected`
+(from `out/demo.protected.cpp`) and `more_protected` (from `out/more.protected.cpp`). They appear in the
+build only after the corresponding `.protected.cpp` file has been generated and the project reconfigured:
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022"
@@ -46,31 +46,36 @@ cmake --build build --config Release
 .\build\Release\more_protected.exe
 ```
 
-Ważne: samo `cmake --build` nie wystarczy po wygenerowaniu nowego pliku `.protected.cpp` —
-trzeba najpierw ponownie uruchomić `cmake -S . -B build ...`, żeby CMake zauważył nowy plik
-i dodał dla niego cel budowania.
+Important: a plain `cmake --build` is not enough after generating a new `.protected.cpp` file —
+you must first rerun `cmake -S . -B build ...` so that CMake notices the new file and adds a build
+target for it.
 
-Dla porównania z wersją niechronioną (dowód, że obfuskacja nie zmienia wyniku):
+For comparison with the unprotected version (proof that obfuscation does not change the result):
 
 ```powershell
 cl /std:c++17 /EHsc examples\demo.cpp /Fe:demo_original.exe
 .\demo_original.exe
 ```
 
-(wymaga uruchomienia z "Developer PowerShell for VS 2022", żeby `cl` było rozpoznawane).
+(requires running from "Developer PowerShell for VS 2022" so that `cl` is recognized).
 
-Dodając ochronę dla kolejnego, własnego pliku źródłowego, trzeba dopisać analogiczny warunkowy
-cel w `CMakeLists.txt` (`add_executable(<nazwa>_protected out/<nazwa>.protected.cpp)` +
-`target_link_libraries(... PRIVATE scarlett_runtime)`) — obecne cele są dopisane na sztywno
-pod `demo` i `more`, a nie generowane automatycznie dla dowolnej nazwy pliku.
+To add protection for another source file of your own, add a matching conditional target in
+`CMakeLists.txt` (`add_executable(<name>_protected out/<name>.protected.cpp)` +
+`target_link_libraries(... PRIVATE scarlett_runtime)`) — the existing targets are hard-coded
+for `demo` and `more`, not generated automatically for arbitrary file names.
 
-## Testy
+## Tests
 
-- `scarlett_tests` – VM, rekurencja, integralność
-- `scarlett_diff_tests` – zgodność z wersją natywną
-- `scarlett_fuzz_tests` – 1000 iteracji
+- `scarlett_tests` – VM, recursion, integrity
+- `scarlett_diff_tests` – agreement with the native version
+- `scarlett_fuzz_tests` – 1000 iterations
 
-## Zakres M4
+## M4 scope
 
-Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, wywołania funkcji, return.
-Chronione funkcje działają end-to-end przez ABI (argumenty i wynik) i zwracają ten sam wynik co wersja natywna.
+Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, function calls, return.
+Protected functions work end-to-end through the ABI (arguments and result) and return the same result as the native version.
+
+## License
+
+This project is licensed under the PolyForm Perimeter License 1.0.0. See [LICENSE](LICENSE).
+Copyright (c) 2026 Edmund Kavu and Stanisław Gilewski.
