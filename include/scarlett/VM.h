@@ -19,6 +19,7 @@ struct VMFunction {
     bool isProtected = false;
     bool isNative = false;
     std::vector<VMInst> code;
+    std::vector<std::string> strpool;  // pula literalow napisowych (LOADS indeksuje po niej)
 
     std::function<long long(void*, const long long*, int)> native;
 };

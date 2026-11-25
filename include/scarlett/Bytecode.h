@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-constexpr int VM_OP_COUNT = 25;
+constexpr int VM_OP_COUNT = 30;
 
 namespace scarlett {
 enum class VMOp : uint8_t {
@@ -18,6 +18,11 @@ enum class VMOp : uint8_t {
     AND,OR,XOR,NOT,
     JMP,JMPIF,
     CALL,RET,RETV,
+    LOADS,      // zaladuj literal napisowy z puli stringow funkcji (imm = indeks w puli)
+    SCAT,       // konkatenacja: dst = str(a) + str(b)
+    SLEN,       // dlugosc: dst = len(str(a))  (wynik int)
+    SEQ,        // rownosc napisow: dst = (str(a)==str(b)) ? 1 : 0
+    SNE,        // nierownosc napisow: dst = (str(a)!=str(b)) ? 1 : 0
     HALT,
     COUNT
 };
