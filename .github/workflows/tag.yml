@@ -17,7 +17,7 @@ jobs:
     outputs:
       tag: ${{ steps.create.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create and push tag
         id: create
