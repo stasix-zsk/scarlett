@@ -1,6 +1,12 @@
 # Scarlett VM
 
+[![CI](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml)
+[![Build](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/stasix-zsk/scarlett?include_prereleases&label=latest)](https://github.com/stasix-zsk/scarlett/releases/latest)
+[![CodeQL](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml)
+
 Obfuskator kodu C++ oparty na maszynie wirtualnej (rdzeń M4).
+
 
 ## Budowanie
 
@@ -122,3 +128,9 @@ kompiluje się natywnie dopiero po obfuskacji (w chronionej funkcji jest zastęp
 Przeplywy GitHub Actions utrzymuja niestabilny, przewijany tag/wydanie `latest` przy kazdym
 udanym pushu do `main`. To wydanie zawsze zawiera swiezo zbudowane pliki binarne dla
 Linux, Windows i macOS. Tagi wersjonowane `vX.Y.Z` to stabilny kanal wydan.
+
+
+## Licencja
+
+Projekt jest udostepniany na licencji PolyForm Perimeter License 1.0.0. Zobacz [LICENSE](LICENSE).
+Copyright (c) 2026 Edmund Kavu i Stanisław Gilewski.
