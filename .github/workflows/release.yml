@@ -4,6 +4,26 @@ on:
     tags:
       - "v*"
       - "latest"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and publish"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as a prerelease"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag to build and publish"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as a prerelease"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,7 +37,25 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then tag="${{ github.ref_name }}"; fi
+          prerelease="${{ inputs.prerelease }}"
+          if [ -z "$prerelease" ] || [ "$prerelease" = "false" ]; then
+            case "$tag" in
+              *-*) prerelease="true" ;;
+              *) prerelease="false" ;;
+            esac
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -51,6 +89,7 @@ jobs:
       - name: Upload to GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
           files: scarlett-*
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
