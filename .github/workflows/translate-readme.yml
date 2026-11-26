@@ -32,7 +32,7 @@ jobs:
             code: de
             file: README_DE.md
           - language: Simplified Chinese
-            code: zh
+            code: zh-CN
             file: README_ZH.md
           - language: Russian
             code: ru
