@@ -106,7 +106,7 @@ cuya firma contiene una cadena utiliza la ABI extendida (`scarlett_call_blob_str
 
 Deliberadamente**no**admitido en esta versión: indexación/caracteres (`s[i]`), ordenamiento de cadenas
 (`<`,`>`,…), mutación in situ, llamadas de estilo de método como`s.length()`(el analizador no
-manejar`.`), y mezclando`int + string`.`len(s)`es una VM incorporada: un archivo fuente que la utiliza se compila
+manejar`.`), y mezclando`int + string`.`len(s)`es una máquina virtual integrada: se compila un archivo fuente que la utiliza
 de forma nativa solo después de la ofuscación (dentro de una función protegida se reemplaza por código de bytes).
 
 ## Construir tuberías

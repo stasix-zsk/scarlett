@@ -1,14 +1,10 @@
 # Scarlett VM
 
-[![CI](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml)
-[![Build](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/stasix-zsk/scarlett?include_prereleases&label=latest)](https://github.com/stasix-zsk/scarlett/releases/latest)
-[![CodeQL](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml)
+[![CI](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/ci.yml)[![Build](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/build.yml)[![Latest release](https://img.shields.io/github/v/release/stasix-zsk/scarlett?include_prereleases&label=latest)](https://github.com/stasix-zsk/scarlett/releases/latest)[![CodeQL](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml/badge.svg)](https://github.com/stasix-zsk/scarlett/actions/workflows/codeql.yml)
 
 Obfuskator kodu C++ oparty na maszynie wirtualnej (rdzeń M4).
 
-
-## Budowanie
+## Budynek
 
 Windows (Visual Studio 2022, z PowerShell w katalogu projektu):
 
@@ -18,32 +14,29 @@ cmake --build build --config Release
 ctest --test-dir build -C Release
 ```
 
-Wynikowe pliki trafiają do `build\Release\` (m.in. `scarlett.exe`, `scarlett_runtime.lib`).
-Uruchamiając cokolwiek z katalogu projektu w PowerShell, pamiętaj o prefiksie `.\` przed ścieżką
-(np. `.\build\Release\scarlett.exe`, nie samo `build\Release\scarlett.exe`) — bez niego PowerShell
-czasem próbuje potraktować pierwszy człon ścieżki jako nazwę modułu do zaimportowania.
+Dane wyjściowe kompilacji są umieszczane w`build\Release\`(w tym`scarlett.exe`I`scarlett_runtime.lib`).
+Uruchamiając cokolwiek z katalogu projektu w PowerShell, pamiętaj o`.\`przedrostek przed ścieżką
+(np.`.\build\Release\scarlett.exe`, nie`build\Release\scarlett.exe`) — bez tego PowerShell może
+czasami spróbuj potraktować pierwszy komponent ścieżki jako nazwę modułu do zaimportowania.
 
-## Użycie — generowanie chronionej wersji
+## Użycie — generowanie wersji chronionej
 
 ```powershell
 .\build\Release\scarlett.exe --input examples\demo.cpp --protect mul,factorial --outdir out --seed 42
 .\build\Release\scarlett.exe --input examples\more.cpp --protect fib,sum,max2 --outdir out --seed 42
 ```
 
-Każde wywołanie generuje w folderze `out` trzy pliki: `<nazwa>.protected.cpp`, `<nazwa>.scarlett`, `<nazwa>.meta`.
-`.scarlett` i `.meta` to tylko podgląd/metadane zaszyfrowanego bloku — do uruchomienia programu
-wystarczy sam `.protected.cpp`, bo zaszyfrowany bajtkod jest zaszyty bezpośrednio w jego kodzie
+Każde wywołanie generuje trzy pliki w formacie`out`falcówka:`<name>.protected.cpp`,`<name>.scarlett`,`<name>.meta`.
+The`.scarlett`I`.meta`pliki stanowią jedynie podgląd/metadane zaszyfrowanego bloku — w celu uruchomienia programu
+the`.protected.cpp`wystarczy sam plik, ponieważ zaszyfrowany kod bajtowy jest osadzony bezpośrednio w jego kodzie
 jako statyczna tablica bajtów.
 
-## Uruchomienie chronionej wersji
+## Uruchamianie wersji chronionej
 
-`<nazwa>.protected.cpp` nie jest samowystarczalny — wywołuje `scarlett::scarlett_call_blob`
-z biblioteki `scarlett_runtime`, więc musi być z nią zlinkowany (tak samo jak w `CMakeLists.txt`
-dla `scarlett_runtime`/`scarlett`).
+`<name>.protected.cpp`nie jest samowystarczalny — woła`scarlett::scarlett_call_blob`z`scarlett_runtime`biblioteka, więc musi być z nią połączona (tak jak w`CMakeLists.txt`Do`scarlett_runtime`/`scarlett`).
 
-Projekt ma już gotowe, warunkowe cele CMake dla przykładów z `examples/`: `demo_protected`
-(z `out/demo.protected.cpp`) i `more_protected` (z `out/more.protected.cpp`). Pojawiają się
-w buildzie dopiero po wygenerowaniu odpowiedniego pliku `.protected.cpp` i ponownej konfiguracji:
+Projekt zapewnia już warunkowe cele CMake dla przykładów w`examples/`:`demo_protected`(z`out/demo.protected.cpp`) I`more_protected`(z`out/more.protected.cpp`). Pojawiają się w
+budować dopiero po odpowiednim`.protected.cpp`plik został wygenerowany i projekt został ponownie skonfigurowany:
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022"
@@ -52,54 +45,52 @@ cmake --build build --config Release
 .\build\Release\more_protected.exe
 ```
 
-Ważne: samo `cmake --build` nie wystarczy po wygenerowaniu nowego pliku `.protected.cpp` —
-trzeba najpierw ponownie uruchomić `cmake -S . -B build ...`, żeby CMake zauważył nowy plik
-i dodał dla niego cel budowania.
+Ważne: zwykły`cmake --build`nie wystarczy po wygenerowaniu nowego`.protected.cpp`plik —
+musisz najpierw powtórzyć`cmake -S . -B build ...`aby CMake zauważył nowy plik i dodał kompilację
+cel dla niego.
 
-Dla porównania z wersją niechronioną (dowód, że obfuskacja nie zmienia wyniku):
+Dla porównania z wersją niezabezpieczoną (dowód, że zaciemnianie nie zmienia wyniku):
 
 ```powershell
 cl /std:c++17 /EHsc examples\demo.cpp /Fe:demo_original.exe
 .\demo_original.exe
 ```
 
-(wymaga uruchomienia z "Developer PowerShell for VS 2022", żeby `cl` było rozpoznawane).
+(wymaga uruchomienia z „Developer PowerShell dla VS 2022”, aby`cl`jest rozpoznawany).
 
-Dodając ochronę dla kolejnego, własnego pliku źródłowego, trzeba dopisać analogiczny warunkowy
-cel w `CMakeLists.txt` (`add_executable(<nazwa>_protected out/<nazwa>.protected.cpp)` +
-`target_link_libraries(... PRIVATE scarlett_runtime)`) — obecne cele są dopisane na sztywno
-pod `demo` i `more`, a nie generowane automatycznie dla dowolnej nazwy pliku.
+Aby dodać ochronę innego własnego pliku źródłowego, dodaj pasujący cel warunkowy w`CMakeLists.txt`(`add_executable(<name>_protected out/<name>.protected.cpp)`+`target_link_libraries(... PRIVATE scarlett_runtime)`) — istniejące cele są zakodowane na stałe
+dla`demo`I`more`, nie są generowane automatycznie dla dowolnych nazw plików.
 
 ## Testy
 
-- `scarlett_tests` – VM, rekurencja, integralność
-- `scarlett_diff_tests` – zgodność z wersją natywną
-- `scarlett_fuzz_tests` – 1000 iteracji
-- `scarlett_for_tests` – petle `for` (lowering i wykonanie)
+-   `scarlett_tests`– VM, rekurencja, integralność
+-   `scarlett_diff_tests`– zgodność z wersją natywną
+-   `scarlett_fuzz_tests`– 1000 iteracji
+-   `scarlett_for_tests`–`for`opuszczanie i wykonanie pętli
 
-## Zakres M4
+## Luneta M4
 
-Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, for, wywołania funkcji, return, rekurencja.
-Chronione funkcje działają end-to-end przez ABI (argumenty i wynik) i zwracają ten sam wynik co wersja natywna.
+Obsługiwany podzbiór C++: int/bool/void, arytmetyka, porównania, zmienne lokalne, if, while, for, wywołania funkcji, powrót, rekurencja.
+Funkcje chronione działają kompleksowo poprzez ABI (argumenty i wynik) i zwracają ten sam wynik, co wersja natywna.
 
-### Napisy (string)
+### Smyczki
 
-Typ `string` (można pisać `string` lub `std::string`) jest obsługiwany jako pełnoprawny typ —
-zmienne, parametry i wartości zwracane funkcji chronionych. Wspierane operacje:
+The`string`typ (zapisany jako`string`Lub`std::string`) jest typem pierwszorzędnym — sprawdza się
+zmienne lokalne, parametry i wartości zwracane chronionych funkcji. Obsługiwane operacje:
 
-- literały napisowe, np. `"abc"` (z sekwencjami ucieczki `\n \t \r \0 \\ \"`),
-- konkatenacja operatorem `+`,
-- porównanie `==` i `!=` (wynik `bool`/`int`),
-- długość przez wbudowane `len(s)` (zwraca `int`; dostępne też jako `length(s)`/`size(s)`).
+-   literały łańcuchowe, np.`"abc"`(z ucieczkami`\n \t \r \0 \\ \"`),
+-   połączenie z`+`,
+-   równość`==`i nierówność`!=`(wynik`bool`/`int`),
+-   długość poprzez wbudowany`len(s)`(wraca`int`; dostępny również jako`length(s)`/`size(s)`).
 
 Przykład (`examples/strings.cpp`):
 
 ```cpp
 [[vm_protect]] std::string join(std::string a, std::string b) {
-    return a + "/" + b;              // konkatenacja + literał
+    return a + "/" + b;              // concatenation + literal
 }
 [[vm_protect]] int same(std::string a, std::string b) {
-    if (a == b) return 1;            // porównanie napisów
+    if (a == b) return 1;            // string comparison
     return 0;
 }
 [[vm_protect]] std::string repeat(std::string s, int n) {
@@ -109,28 +100,39 @@ Przykład (`examples/strings.cpp`):
 }
 ```
 
-Napisy w maszynie wirtualnej żyją na dedykowanej stercie — rejestr przechowuje uchwyt (indeks),
-a literały trafiają do zaszyfrowanej puli w bloku `.scarlett` (format bajtkodu v2). Funkcje
-o sygnaturze z napisem używają rozszerzonego ABI (`scarlett_call_blob_str` / wariant z `ints[]`+`strs[]`).
+Wewnątrz ciągów VM znajdują się na dedykowanej stercie — rejestr przechowuje uchwyt (indeks) i literały
+przejdź do zaszyfrowanej puli funkcji w pliku`.scarlett`blok (format kodu bajtowego v2). Funkcje
+którego podpis zawiera ciąg znaków, użyj rozszerzonego ABI (`scarlett_call_blob_str`/`ints[]`+`strs[]`wariant).
 
-Celowo **nie** wspierane w tej wersji: indeksowanie/znaki (`s[i]`), porządkowanie napisów
-(`<`, `>` itp.), mutacja w miejscu, metody w stylu `s.length()` (parser nie obsługuje `.`),
-oraz mieszanie `int + string`. `len(s)` to funkcja wbudowana VM — plik źródłowy, który jej używa,
-kompiluje się natywnie dopiero po obfuskacji (w chronionej funkcji jest zastępowana bajtkodem).
+Celowo**nie**obsługiwane w tej wersji: indeksowanie/znaki (`s[i]`), kolejność ciągów
+(`<`,`>`, …), mutacja lokalna, wywołania w stylu metody, takie jak`s.length()`(parser tego nie robi
+uchwyt`.`) i miksuję`int + string`.`len(s)`jest wbudowaną maszyną wirtualną — plik źródłowy korzystający z niej kompiluje się
+natywnie dopiero po zaciemnieniu (wewnątrz chronionej funkcji jest ona zastępowana przez kod bajtowy).
 
-## Potoki budowania
+## Buduj rurociągi
 
-- **Stabilny**: budowy Release na `main` i tagach, z publikowanymi wydaniami wersjonowanymi.
-- **Niestabilny**: budowy Debug na pull requestach i branchach feature, przesylane jako artefakty CI bez wydania.
+-   **Stabilny**: Wydanie opiera się na`main`i tagi z opublikowanymi wersjami wersji.
+-   **Nietrwały**: Debugowanie opiera się na żądaniach ściągnięcia i gałęziach funkcji przesłanych jako
+    Artefakty CI bez tworzenia wersji.
 
 ## Wydania i tagi
 
-Przeplywy GitHub Actions utrzymuja niestabilny, przewijany tag/wydanie `latest` przy kazdym
-udanym pushu do `main`. To wydanie zawsze zawiera swiezo zbudowane pliki binarne dla
-Linux, Windows i macOS. Tagi wersjonowane `vX.Y.Z` to stabilny kanal wydan.
+Przepływy pracy GitHub Actions działają niestabilnie`latest`zaktualizowano tag/wydanie
+przy każdym udanym naciśnięciu`main`. To wydanie zawsze zawiera świeżo zbudowane
+pliki binarne dla systemów Linux, Windows i macOS. Wersjonowane`vX.Y.Z`tagi są stabilne
+kanał wydania.
 
+Wersjonowany tag wydania (`vX.Y.Z`) jest tworzony zamiast tego w przypadku wypychania lub kompilacji
+uruchom z parametrami wydania:
+
+-   umieścić`[release]`w komunikacie zatwierdzenia (lub zmień`VERSION`), Lub
+-   uruchom**Zbudować**przepływ pracy ręcznie za pomocą`release`włączone i opcjonalnie a`version`, Lub
+-   uruchom**Etykietka**przepływ pracy z wyraźnym tagiem, takim jak`v1.2.3`.
+
+Wersjonowane wydania publikują również skompilowane pliki binarne dla wszystkich platform, a nie tylko
+archiwa źródłowe wygenerowane przez GitHub.
 
 ## Licencja
 
-Projekt jest udostepniany na licencji PolyForm Perimeter License 1.0.0. Zobacz [LICENSE](LICENSE).
-Copyright (c) 2026 Edmund Kavu i Stanisław Gilewski.
+Ten projekt jest objęty licencją PolyForm Perimeter License 1.0.0. Widzieć[LICENCJA](LICENSE).
+Copyright (c) 2026 Edmund Kavu and Stanisław Gilewski.
