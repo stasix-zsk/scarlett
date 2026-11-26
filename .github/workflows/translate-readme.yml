@@ -38,7 +38,7 @@ jobs:
             code: ru
             file: README_RU.md
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Translate README
         uses: offensive-vk/auto-translate@v7
@@ -53,20 +53,21 @@ jobs:
           fi
 
       - name: Upload translation
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: translation-${{ matrix.language }}
           path: ${{ matrix.file }}
+          if-no-files-found: warn
 
   commit:
     name: Commit translated READMEs
     needs: translate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Download translations
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           path: .
           merge-multiple: true
@@ -75,7 +76,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README_PL.md README_ES.md README_DE.md README_ZH.md README_RU.md
+          git add README*.md || true
           if git diff --cached --quiet; then
             echo "No translation changes to commit."
             exit 0
