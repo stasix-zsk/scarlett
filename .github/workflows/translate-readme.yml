@@ -40,11 +40,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Translate README
+      - name: Rate-limit delay (Chinese)
+        if: matrix.language == 'Simplified Chinese'
+        run: sleep 30
+
+      - name: Translate README (attempt 1)
         uses: offensive-vk/auto-translate@v7
         with:
           file: README.md
           language: ${{ matrix.code }}
+        continue-on-error: true
+
+      - name: Translate README (attempt 2)
+        if: ${{ !hashFiles(format('README.{0}.md', matrix.code)) }}
+        uses: offensive-vk/auto-translate@v7
+        with:
+          file: README.md
+          language: ${{ matrix.code }}
+        continue-on-error: true
+
+      - name: Translate README (attempt 3)
+        if: ${{ !hashFiles(format('README.{0}.md', matrix.code)) }}
+        uses: offensive-vk/auto-translate@v7
+        with:
+          file: README.md
+          language: ${{ matrix.code }}
+        continue-on-error: true
 
       - name: Normalize translated file name
         run: |
