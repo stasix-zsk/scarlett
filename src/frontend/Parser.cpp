@@ -25,7 +25,7 @@ void Parser::tokenize() {
         if (isIdentStart(c)) {
             size_t j=i; while (j<src_.size() && isIdentChar(src_[j])) ++j; // zbiera znaki identyfikatora
             t.type=Token::Ident; t.text=src_.substr(i,j-i); i=j;
-            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="string"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="for"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
+            if (t.text=="int"||t.text=="bool"||t.text=="void"||t.text=="string"||t.text=="if"||t.text=="else"||t.text=="while"||t.text=="do"||t.text=="for"||t.text=="break"||t.text=="continue"||t.text=="return"||t.text=="true"||t.text=="false") t.type=Token::Kw;
             // ergonomia podzbioru: "std::string" (z dowolnymi odstepami) traktujemy
             // jak pojedynczy typ "string", by akceptowac naturalny zapis C++.
             if (t.text=="std") {
@@ -178,6 +178,29 @@ std::shared_ptr<Stmt> Parser::parseStmt(){
         expect(")");
         auto b=parseStmt();
         auto s=std::make_shared<Stmt>(); s->kind=Stmt::While; s->cond=c; s->body=b;
+        return s;
+    }
+    if (peek().text=="do") {
+        next();
+        auto b=parseStmt();
+        expect("while");
+        expect("(");
+        auto c=parseExpr();
+        expect(")");
+        expect(";");
+        auto s=std::make_shared<Stmt>(); s->kind=Stmt::DoWhile; s->body=b; s->cond=c;
+        return s;
+    }
+    if (peek().text=="break") {
+        next();
+        expect(";");
+        auto s=std::make_shared<Stmt>(); s->kind=Stmt::Break;
+        return s;
+    }
+    if (peek().text=="continue") {
+        next();
+        expect(";");
+        auto s=std::make_shared<Stmt>(); s->kind=Stmt::Continue;
         return s;
     }
     if (peek().text=="for") {

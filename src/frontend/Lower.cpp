@@ -5,6 +5,7 @@
 #include "scarlett/IR.h"
 #include <map>
 #include <memory>
+#include <vector>
 
 namespace scarlett {
 
@@ -19,6 +20,8 @@ struct Lowerer {
     std::map<std::string,ValueType> varTypes;   // typ kazdej zmiennej (do inferencji napisow)
     std::map<std::string,int> strlits;          // deduplikacja literalow w puli stringow funkcji
     int regCount = 0;
+    struct LoopCtx { std::string start, body, end, cont; };
+    std::vector<LoopCtx> loops;
     int newReg() { return regCount++; }
     IRModule& mod;
     const std::map<std::string,std::string>& aliases;
@@ -201,17 +204,20 @@ struct Lowerer {
             IRInst bif; bif.op=IROp::JMPIF; bif.a=c; bif.label=Lbody; fn.code.push_back(bif);
             IRInst jmp; jmp.op=IROp::JMP; jmp.label=Lend; fn.code.push_back(jmp);
             IRInst labb; labb.op=IROp::LABEL; labb.label=Lbody; fn.code.push_back(labb);
+            loops.push_back({Lstart, Lbody, Lend, Lstart});
             lowerStmt(s->body);
+            loops.pop_back();
             IRInst jmp2; jmp2.op=IROp::JMP; jmp2.label=Lstart; fn.code.push_back(jmp2);
             IRInst labe; labe.op=IROp::LABEL; labe.label=Lend; fn.code.push_back(labe);
             return;
         }
         if (s->kind == Stmt::For) {
             // for desugaruje sie do: init ; start: if(cond) goto body else goto end ;
-            //                        body: <cialo> ; <krok> ; goto start ; end:
+            //                        body: <cialo> ; cont: <krok> ; goto start ; end:
             if (s->forInit) lowerStmt(s->forInit);
             std::string Lstart = "L"+std::to_string(fn.code.size())+"fs";
             std::string Lbody  = "L"+std::to_string(fn.code.size())+"fb";
+            std::string Lcont  = "L"+std::to_string(fn.code.size())+"fc";
             std::string Lend   = "L"+std::to_string(fn.code.size())+"fe";
             IRInst lab; lab.op=IROp::LABEL; lab.label=Lstart; fn.code.push_back(lab);
             if (s->cond) {
@@ -221,10 +227,39 @@ struct Lowerer {
                 IRInst jmp; jmp.op=IROp::JMP; jmp.label=Lend; fn.code.push_back(jmp);
                 IRInst labb; labb.op=IROp::LABEL; labb.label=Lbody; fn.code.push_back(labb);
             }
+            loops.push_back({Lstart, Lbody, Lend, Lcont});
             lowerStmt(s->body);
+            loops.pop_back();
+            IRInst labc; labc.op=IROp::LABEL; labc.label=Lcont; fn.code.push_back(labc);
             if (s->forPost) lowerExpr(s->forPost);
             IRInst jmp2f; jmp2f.op=IROp::JMP; jmp2f.label=Lstart; fn.code.push_back(jmp2f);
             IRInst labe; labe.op=IROp::LABEL; labe.label=Lend; fn.code.push_back(labe);
+            return;
+        }
+        if (s->kind == Stmt::DoWhile) {
+            std::string Lbody = "L"+std::to_string(fn.code.size())+"d";
+            std::string Lcond = "L"+std::to_string(fn.code.size())+"dc";
+            std::string Lend  = "L"+std::to_string(fn.code.size())+"de";
+            IRInst lab; lab.op=IROp::LABEL; lab.label=Lbody; fn.code.push_back(lab);
+            loops.push_back({Lbody, Lbody, Lend, Lcond});
+            lowerStmt(s->body);
+            loops.pop_back();
+            IRInst labc; labc.op=IROp::LABEL; labc.label=Lcond; fn.code.push_back(labc);
+            int c = lowerExpr(s->cond).reg;
+            IRInst bif; bif.op=IROp::JMPIF; bif.a=c; bif.label=Lbody; fn.code.push_back(bif);
+            IRInst labe; labe.op=IROp::LABEL; labe.label=Lend; fn.code.push_back(labe);
+            return;
+        }
+        if (s->kind == Stmt::Break) {
+            if (!loops.empty()) {
+                IRInst jmp; jmp.op=IROp::JMP; jmp.label=loops.back().end; fn.code.push_back(jmp);
+            }
+            return;
+        }
+        if (s->kind == Stmt::Continue) {
+            if (!loops.empty()) {
+                IRInst jmp; jmp.op=IROp::JMP; jmp.label=loops.back().cont; fn.code.push_back(jmp);
+            }
             return;
         }
         if (s->kind == Stmt::Return) {

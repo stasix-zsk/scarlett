@@ -60,3 +60,7 @@ add_test(NAME scarlett_for_tests COMMAND scarlett_for_tests)
 add_executable(scarlett_string_tests tests/test_string.cpp)
 target_link_libraries(scarlett_string_tests PRIVATE scarlett_runtime)
 add_test(NAME scarlett_string_tests COMMAND scarlett_string_tests)
+
+add_executable(scarlett_control_tests tests/test_control.cpp)
+target_link_libraries(scarlett_control_tests PRIVATE scarlett_runtime)
+add_test(NAME scarlett_control_tests COMMAND scarlett_control_tests)

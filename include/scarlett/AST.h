@@ -21,7 +21,7 @@ struct Expr {
 };
 
 struct Stmt {
-    enum Kind { Block, VarDecl, Assign, If, While, For, Return, ExprStmt } kind;
+    enum Kind { Block, VarDecl, Assign, If, While, DoWhile, For, Break, Continue, Return, ExprStmt } kind;
     ValueType type = ValueType::Int;
     std::string name;
     std::shared_ptr<Expr> init, cond, expr;

@@ -78,7 +78,7 @@ for `demo` and `more`, not generated automatically for arbitrary file names.
 
 ## M4 scope
 
-Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, for, function calls, return, recursion.
+Supported C++ subset: int/bool/void, arithmetic, comparisons, local variables, if, while, do-while, for, break, continue, function calls, return, recursion.
 Protected functions work end-to-end through the ABI (arguments and result) and return the same result as the native version.
 
 ### Strings
