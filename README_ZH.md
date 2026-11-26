@@ -70,7 +70,7 @@ cl /std:c++17 /EHsc examples\demo.cpp /Fe:demo_original.exe
 
 ## M4瞄准镜
 
-支持的 C++ 子集：int/bool/void、算术、比较、局部变量、if、while、for、函数调用、return、递归。
+支持的 C++ 子集：int/bool/void、算术、比较、局部变量、if、while、do-while、for、break、 continue、函数调用、return、递归。
 受保护的函数通过 ABI（参数和结果）端到端工作，并返回与本机版本相同的结果。
 
 ### 弦乐

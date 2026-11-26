@@ -70,7 +70,7 @@ para`demo`y`more`, no se genera automáticamente para nombres de archivos arbitr
 
 ## alcance m4
 
-Subconjunto de C++ soportado: int/bool/void, aritmética, comparaciones, variables locales, if, while, for, llamadas a funciones, return, recursividad.
+Subconjunto de C++ soportado: int/bool/void, aritmética, comparaciones, variables locales, if, while, do- while, for, break, continue, llamadas a funciones, return, recursividad.
 Las funciones protegidas funcionan de un extremo a otro a través de la ABI (argumentos y resultados) y devuelven el mismo resultado que la versión nativa.
 
 ### Instrumentos de cuerda
